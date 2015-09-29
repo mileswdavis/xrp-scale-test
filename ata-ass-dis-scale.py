@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import threading
 import time
 import ipaddress
+import csv
 
 try:
     import pexpect
@@ -46,7 +47,7 @@ class VeriWavePort(object):
 class VeriWaveClient(object):
     # Class for storing information about VeriWave clients
 
-    def __init__(self, name, ssid, allowed_ports, ip_address=None, gateway=None, authentication = None, bssid_preference = None):
+    def __init__(self, name, ssid, allowed_ports, ip_address=None, gateway=None, authentication = None, bssid_preference = None, username = None, password = None):
         self.name = name
         self.ssid = ssid
         self.allowed_ports = allowed_ports
@@ -54,6 +55,8 @@ class VeriWaveClient(object):
         self.gateway = gateway
         self.authentication = authentication
         self.bssid_preference = bssid_preference
+        self.username = username
+        self.password = password
 
     def __repr__(self):
         return "\nname: %s\nssid: %s\nallowed ports: %s ip address: %s gateway: %s\n" % (self.name, self.ssid, self.allowed_ports, self.ip_address, self.gateway)
@@ -211,9 +214,15 @@ def modify_veriwave_client_list(client_list, port_list, ssid, target_count, clie
                 add_client_port_iterator = i
                 break
 
+    # Calculate the list of user names and passwords before we start
+    if authentication != None:
+        if authentication[0] == '/':
+            user_pass_list = parse_user_pass_csv(authentication)
+
     # If the target client count is greater than the current client count then add until they are equal
     while len(client_list) < target_count:
         # Build the client name. Client names will be a combination of a unique client ID and the port number it is locked to. Example c10_w23
+        client_number = len(client_list)
         client_name = 'c' + str("%06d" % len(client_list)) + '_'
         client_name += port_list[add_client_port_iterator].port_name
 
@@ -234,6 +243,12 @@ def modify_veriwave_client_list(client_list, port_list, ssid, target_count, clie
             # Append the new client object to the end of the client list with an iterated IP address (Static)
             client_interface = ipaddress.IPv4Interface(str(list(client_network.hosts())[len(client_list)+ip_host_offset]) + '/' + client_netmask)
             client_list.append(VeriWaveClient(client_name, ssid, port_list[add_client_port_iterator].port_name, ip_address = client_interface, gateway = client_gateway, authentication = authentication, bssid_preference = client_bssid_pref))
+
+        if authentication != None:
+            if authentication[0] == '/':
+                client_list[-1].username = user_pass_list[client_number]['Username']
+                client_list[-1].password = user_pass_list[client_number]['Password']
+
 
         # Deal with properly iterating the port list insertion point for the next client to be added
         add_client_port_iterator += 1
@@ -398,7 +413,7 @@ def sync_veriwave_client_list(handler, sync_client_list):
         # Iterate the add client list and insert the new clients
         for add_client in add_client_list:
             # Base portion
-            base_portion = 'createClient %s %s allowedPorts=%s ' % (add_client.name, add_client.ssid, add_client.allowed_ports)
+            base_portion = 'createClient %s %s allowedPorts=%s clientType=802.11a/b/g/n/ac' % (add_client.name, add_client.ssid, add_client.allowed_ports)
             # IP Address portion
             if add_client.ip_address == None:
                 ip_portion = ''
@@ -408,6 +423,8 @@ def sync_veriwave_client_list(handler, sync_client_list):
             # Authentication portion
             if add_client.authentication == None:
                 auth_portion = ''
+            elif add_client.authentication[0] == '/':
+                auth_portion = 'security=on APAuthMethod=open networkAuthMethod=peapMschapv2 encryptionMethod=ccmp keyMethod=wpa2 identity=%s password=%s anonymousIdentity=%s ' % (add_client.username, add_client.password, add_client.username)
             else:
                 auth_portion = 'networkAuthMethod=psk encryptionMethod=ccmp keyMethod=wpa2 keyType=ascii networkKey=%s ' % (add_client.authentication)
 
@@ -439,6 +456,18 @@ def sync_veriwave_client_list(handler, sync_client_list):
             #        #print ('createClient %s %s allowedPorts=%s IP=%s subnetMask=%s gateway=%s APAuthMethod=shared encryptionMethod=ccmp keyMethod=wpa2 keyType==ascii networkKey=%s' % (add_client.name, add_client.ssid, add_client.allowed_ports, add_client.ip_address.ip, add_client.ip_address.netmask, add_client.gateway, add_client.authentication))
             #        handler.sendline('createClient %s %s allowedPorts=%s IP=%s subnetMask=%s gateway=%s networkAuthMethod=psk encryptionMethod=ccmp keyMethod=wpa2 keyType=ascii networkKey=%s' % (add_client.name, add_client.ssid, add_client.allowed_ports, add_client.ip_address.ip, add_client.ip_address.netmask, add_client.gateway, add_client.authentication))
             #        handler.expect('admin ready>')
+
+def parse_user_pass_csv(csv_input):
+    user_pass_list = list()
+    try:
+        file_handler = open(csv_input)
+        csv_handler = csv.DictReader(file_handler)
+        for row in csv_handler:
+            user_pass_list.append({'Username':row['Username'], 'Password':row['Value']})
+        return user_pass_list
+    except:
+        return user_pass_list
+
 
 def associate_veriwave_client_list(handler, client_list):
     # This functions looks at the clients on the chassis and associates them if they are both on the client list and currently disassociated.
@@ -490,7 +519,7 @@ def roam_manager (handler, client_list, roam_per_10min, stop_event):
 
     if roam_per_10min != 0:
         # Calculate the delay factor
-        rate_in_roams_per_sec = float(roam_per_10min) / (10*60)
+        rate_in_roams_per_sec = float(roam_per_10min) / (10.0*60.0)
         delay_time = (1.0 / rate_in_roams_per_sec)
 
         while (not stop_event.is_set()):
@@ -600,6 +629,8 @@ def main():
         # Determine the right way to display the Authentication settings
         if authentication == None:
             disp_authentication = 'Open'
+        elif authentication[0] == '/':
+            disp_authentication = 'WPA2 RADIUS'
         else:
             disp_authentication = 'WPA2 PSK (' + str(authentication) + ')'
         # Display the main menu    
@@ -623,7 +654,8 @@ def main():
                 # Read the input for the option and clean it up
                 sys.stdout.write('1. Change client IP Addressing method.\n')
                 sys.stdout.write('2. Change client Authentication method.\n')
-                sys.stdout.write('3. Back\n')
+                sys.stdout.write('3. Change client SSID.\n')
+                sys.stdout.write('4. Back\n')
                 sys.stdout.write('Please choose: ')
                 sys.stdout.flush()
                 option = sys.stdin.readline()
@@ -740,7 +772,8 @@ def main():
                         # Display the change client Authentication method menu
                         sys.stdout.write('1. Open\n')
                         sys.stdout.write('2. WPA2 PSK\n')
-                        sys.stdout.write('3. Back\n')
+                        sys.stdout.write('3. WPA2 RADIUS\n')
+                        sys.stdout.write('4. Back\n')
                         # Read the input for the option and clean it up
                         sys.stdout.write('Please choose: ')
                         sys.stdout.flush()
@@ -832,10 +865,108 @@ def main():
                             sys.stdout.write('**** New WPA2 PSK is %s.\n' % (authentication))
                         elif option == '3':
                             auth_option_clean = True
+                            auth_radius_option_clean = False
+                            while not auth_radius_option_clean:
+                                sys.stdout.write('Enter the full path to the username/password CSV: ')
+                                sys.stdout.flush()
+                                radius_csv_input = sys.stdin.readline()
+                                radius_csv_input = radius_csv_input.strip()
+
+                                client_user_pass_new = parse_user_pass_csv(radius_csv_input)
+
+                                if len(client_user_pass_new) > len(veriwave_client_list):
+                                    authentication = radius_csv_input
+                                    auth_radius_option_clean = True
+                                    if authentication == old_authentication:
+                                        sys.stdout.write('**** The Authentication scheme has not been changed. No modifications will occur.\n')
+                                    else:
+                                        sys.stdout.write('**** The Authentication scheme has been changed. The client list will be rebuilt if needed.\n')
+                                        if len(veriwave_client_list) > 0:
+                                            # Stop the threading managers
+                                            stop_da_event.set()
+                                            stop_roam_event.set()
+                                            # Grab the old list length so we can replicate it.
+                                            new_client_count = len(veriwave_client_list)
+                                            # Clear out the current client list and purge the chassis
+                                            veriwave_client_list = []
+                                            sys.stdout.write('**** Purging the clients. This will take about 60 seconds.\n')
+                                            purge_clients(handler)
+                                            # Calculate the time it might take to do this and let the user know
+                                            client_mod_time = int(.5 * abs(new_client_count))
+                                            sys.stdout.write('**** Syncing the clients. This will take about %s seconds.\n' % (client_mod_time))
+                                            # Pass the new value over the the client list modifier
+                                            veriwave_client_list, veriwave_wireless_port_list = modify_veriwave_client_list(veriwave_client_list, veriwave_wireless_port_list, client_ssid, new_client_count, client_network = ip_addressing, aps_per_chamber = aps_per_chamber, authentication = authentication)
+                                            # Sync the new client list to the ATA chassis.
+                                            sync_veriwave_client_list(handler, veriwave_client_list)
+                                            # Kick off the disassociate associate threading manager with the new client list
+                                            stop_da_event = threading.Event()
+                                            stop_roam_event = threading.Event()
+
+                                            da_thread = threading.Thread(target = ass_dis_manager, args = (ass_dis_handler, veriwave_client_list, da_per_10min, stop_da_event))
+                                            roam_thread = threading.Thread(target = roam_manager, args = (roam_handler, veriwave_client_list, roam_per_10min, stop_roam_event))
+
+                                            da_thread.start()
+                                            roam_thread.start()
+                                elif len(client_user_pass_new) > 0:
+                                    sys.stdout.write('Input is invalid. There are not enough usernames and passwords in the file to match the number of clients.\n')
+                                # This seems to be an invalid WPA2 RADIUS input.
+                                else:
+                                    sys.stdout.write('Input is invalid. Please enter a valid file directory to a CSV that contains usernames and passwords.\n')
+                            sys.stdout.write('**** New WPA2 RADIUS CSV file is %s.\n' % (authentication))
+
+                        elif option == '4':
+                            auth_option_clean = True
                             settings_options_clean = False
                         else:
                             sys.stdout.write('Invalid option. Please try again.\n')
                 elif option == '3':
+                    settings_options_clean = True
+                    ssid_input_clean = False
+                    old_client_ssid = client_ssid
+
+                    while not ssid_input_clean:
+                        sys.stdout.write('Please enter new client SSID: ')
+                        sys.stdout.flush()
+                        ssid_input = sys.stdin.readline()
+                        ssid_input = ssid_input.strip()
+                        if len(ssid_input) > 0:
+                            ssid_input_clean = True
+                            client_ssid = ssid_input
+                            if client_ssid == old_client_ssid:
+                                sys.stdout.write('**** The client SSID has not been changed. No modifications will occur.\n')
+                            else:
+                                sys.stdout.write('**** The client SSID has been changed. The client list will be rebuilt if needed.\n')
+                                if len(veriwave_client_list) > 0:
+                                    # Stop the threading managers
+                                    stop_da_event.set()
+                                    stop_roam_event.set()
+                                    # Grab the old list length so we can replicate it.
+                                    new_client_count = len(veriwave_client_list)
+                                    # Clear out the current client list and purge the chassis
+                                    veriwave_client_list = []
+                                    sys.stdout.write('**** Purging the clients. This will take about 60 seconds.\n')
+                                    purge_clients(handler)
+                                    # Calculate the time it might take to do this and let the user know
+                                    client_mod_time = int(.5 * abs(new_client_count))
+                                    sys.stdout.write('**** Syncing the clients. This will take about %s seconds.\n' % (client_mod_time))
+                                    # Pass the new value over the the client list modifier
+                                    veriwave_client_list, veriwave_wireless_port_list = modify_veriwave_client_list(veriwave_client_list, veriwave_wireless_port_list, client_ssid, new_client_count, client_network = ip_addressing, aps_per_chamber = aps_per_chamber, authentication = authentication)
+                                    # Sync the new client list to the ATA chassis.
+                                    sync_veriwave_client_list(handler, veriwave_client_list)
+                                    # Kick off the disassociate associate threading manager with the new client list
+                                    stop_da_event = threading.Event()
+                                    stop_roam_event = threading.Event()
+
+                                    da_thread = threading.Thread(target = ass_dis_manager, args = (ass_dis_handler, veriwave_client_list, da_per_10min, stop_da_event))
+                                    roam_thread = threading.Thread(target = roam_manager, args = (roam_handler, veriwave_client_list, roam_per_10min, stop_roam_event))
+
+                                    da_thread.start()
+                                    roam_thread.start()
+                        # This seems to be an invalid SSID.
+                        else:
+                            sys.stdout.write('Input is invalid. Please enter a valid client SSID.\n')
+
+                elif option == '4':
                     settings_options_clean = True
                 else:
                     sys.stdout.write('Invalid option. Please try again.\n')
@@ -932,6 +1063,7 @@ def main():
             purge_clients_ports(handler)
             session_end(handler)
             session_end(ass_dis_handler)
+            session_end(roam_handler)
             sys.stdout.write('Exiting!\n')
             # Exit program
             break
