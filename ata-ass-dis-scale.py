@@ -338,11 +338,11 @@ def sync_veriwave_port_list(handler, wired_sync_port_list, wireless_sync_port_li
 
         # Check to see if the last portbind attempt failed.
         if bindport_xml.find('./cmdStatus').text != 'ok':
-            sys.stdout.write ('**** Possible error with port. Removing - %s' % (add_port.port_name))
+            sys.stdout.write ('**** Possible error with port. Reboot chassis. Removing - %s' % (add_port.port_name))
             if add_port.port_name[0] == 'w':
                 wireless_sync_port_list.remove(add_port)
             else:
-                wireless_sync_port_list.remove(add_port)
+                wired_sync_port_list.remove(add_port)
 
     # Set the channels
     for sync_port in wireless_sync_port_list:
