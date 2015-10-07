@@ -133,10 +133,10 @@ def initialize_veriwave_port_list(handler, chassis, channel_list):
     veriwave_wired_port_list = []
 
     # Initialize Wired List
-    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 1, 'e11', None, 'Ethernet'))
-    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 2, 'e12', None, 'Ethernet'))
-    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 3, 'e13', None, 'Ethernet'))
-    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 4, 'e14', None, 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 1, 'e11', channel_list[0], 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 2, 'e12', channel_list[1], 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 3, 'e13', channel_list[2], 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 4, 'e14', channel_list[3], 'Ethernet'))
 
     #Initialize Wireless List
     veriwave_wireless_port_list.append(VeriWavePort(chassis, 2, 1, 'w21', channel_list[0], 'WLAN'))
