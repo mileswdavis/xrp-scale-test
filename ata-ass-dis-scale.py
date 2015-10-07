@@ -87,7 +87,7 @@ def session_setup(ata_ip, ata_user,debug=False):
 def session_end(handler):
     # This function disconnects from ATA cleanly
     handler.sendline('exit')
-    handler.expect('Goodbye', timeout = 180)
+    handler.expect('Goodbye', timeout = 360)
 
 def clear_all_ports(handler, chassis_ip):
     # This function clears all port associations for a given chassis IP
@@ -128,46 +128,56 @@ def clear_all_ports(handler, chassis_ip):
 def initialize_veriwave_port_list(handler, chassis, channel_list):
     # This function initializes a list of VeriWavePort objects by iterating through a list of channels
 
-    # Send the 'getChassisInfo' command to extract information about the currently installed cards
-    handler.sendline('getChassisInfo ' + chassis)
-    handler.expect('admin ready>', timeout=160)
-
-    # Grab the output of the command and parse the XML
-    get_chassis_info_output = None
-    get_chassis_info_output = handler.before.decode('utf-8', 'ignore')
-    get_chassis_info_xml = ET.fromstring('\n'.join(get_chassis_info_output.split('\n')[1:]))
-
     # Initialize some variables
     veriwave_wireless_port_list = []
     veriwave_wired_port_list = []
 
-    # Iterate through the root XML
-    for slot in get_chassis_info_xml:
-        # Look for the slots
-        if 'slot_' in slot.tag:
-            # Extract the port type
-            port_type = slot.find('cardClass').text
-            # Iterate through the ports
-            for port in slot.find('ports'):
-                # Build the first part of the port name, w or e depending on if it is wireless or ethernet.
-                port_name = ''
-                if port_type == 'WLAN':
-                    port_name += 'w'
-                else:
-                    port_name += 'e'
-                # Now add the slot and port number to the end.
-                port_name += slot.tag.split('_')[1]
-                port_name += port.tag.split('_')[1]
-                # Also grab the slot number and port number so we have them in interger form.
-                slot_num = int(slot.tag.split('_')[1])
-                port_num = int(port.tag.split('_')[1])
-                # Set the channel from the channel list passed to the function. Iterate through the list evenly. Roll back to the beginning when we hit the end.
-                channel = channel_list[port_num - 1]
+    # Initialize Wired List
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 1, 'e11', None, 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 2, 'e12', None, 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 3, 'e13', None, 'Ethernet'))
+    veriwave_wired_port_list.append(VeriWavePort(chassis, 1, 4, 'e14', None, 'Ethernet'))
 
-                if port_type == 'WLAN':
-                    veriwave_wireless_port_list.append(VeriWavePort(chassis, slot_num, port_num, port_name, channel, port_type))
-                else:
-                    veriwave_wired_port_list.append(VeriWavePort(chassis, slot_num, port_num, port_name, channel, port_type))
+    #Initialize Wireless List
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 2, 1, 'w21', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 2, 2, 'w22', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 2, 3, 'w23', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 2, 4, 'w24', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 3, 1, 'w31', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 3, 2, 'w32', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 3, 3, 'w33', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 3, 4, 'w34', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 1, 'w41', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 2, 'w42', channel_list[1], 'WLAN'))
+    #veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 3, 'w43', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 4, 'w44', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 5, 1, 'w51', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 5, 2, 'w52', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 5, 3, 'w53', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 5, 4, 'w54', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 6, 1, 'w61', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 6, 2, 'w62', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 6, 3, 'w63', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 6, 4, 'w64', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 7, 1, 'w71', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 7, 2, 'w72', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 7, 3, 'w73', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 7, 4, 'w74', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 8, 1, 'w81', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 8, 2, 'w82', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 8, 3, 'w83', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 8, 4, 'w84', channel_list[3], 'WLAN'))
+
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 9, 1, 'w91', channel_list[0], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 9, 2, 'w92', channel_list[1], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 9, 3, 'w93', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 9, 4, 'w94', channel_list[3], 'WLAN'))
 
     return veriwave_wireless_port_list, veriwave_wired_port_list
 
@@ -1057,7 +1067,7 @@ def main():
         # Clean up and exit option
         elif option == '6':
             # Purge everything
-            sys.stdout.write('**** Cleaning up the chassis. This can take up to 90 seconds.\n')
+            sys.stdout.write('**** Cleaning up the chassis. This can take up to 600 seconds.\n')
             stop_da_event.set()
             stop_roam_event.set()
             purge_clients_ports(handler)
