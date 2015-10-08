@@ -7,6 +7,7 @@ import threading
 import time
 import ipaddress
 import csv
+import random
 
 try:
     import pexpect
@@ -151,7 +152,7 @@ def initialize_veriwave_port_list(handler, chassis, channel_list):
 
     veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 1, 'w41', channel_list[0], 'WLAN'))
     veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 2, 'w42', channel_list[1], 'WLAN'))
-    #veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 3, 'w43', channel_list[2], 'WLAN'))
+    veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 3, 'w43', channel_list[2], 'WLAN'))
     veriwave_wireless_port_list.append(VeriWavePort(chassis, 4, 4, 'w44', channel_list[3], 'WLAN'))
 
     veriwave_wireless_port_list.append(VeriWavePort(chassis, 5, 1, 'w51', channel_list[0], 'WLAN'))
@@ -423,7 +424,7 @@ def sync_veriwave_client_list(handler, sync_client_list):
         # Iterate the add client list and insert the new clients
         for add_client in add_client_list:
             # Base portion
-            base_portion = 'createClient %s %s allowedPorts=%s clientType=802.11a/b/g/n useReassoc=on DHCPHostname=%s ' % (add_client.name, add_client.ssid, add_client.allowed_ports, add_client.name)
+            base_portion = 'createClient %s %s allowedPorts=%s clientType=802.11a/b/g/n useReassoc=on DHCPHostname=%s deviceName=%s ' % (add_client.name, add_client.ssid, add_client.allowed_ports, add_client.name, random.randint(1,61))
             # IP Address portion
             if add_client.ip_address == None:
                 ip_portion = ''
