@@ -424,7 +424,7 @@ def sync_veriwave_client_list(handler, sync_client_list):
         # Iterate the add client list and insert the new clients
         for add_client in add_client_list:
             # Base portion
-            base_portion = 'createClient %s %s allowedPorts=%s clientType=802.11a/b/g/n useReassoc=on DHCPHostname=%s deviceName=%s DHCPHostname=%s ' % (add_client.name, add_client.ssid, add_client.allowed_ports, add_client.name, random.randint(1,61), add_client.name)
+            base_portion = 'createClient %s %s allowedPorts=%s clientType=802.11a/b/g/n useReassoc=on DHCPHostname=%s deviceName=%s channelBW=40 rateAdapt=yes ' % (add_client.name, add_client.ssid, add_client.allowed_ports, add_client.name, random.randint(1,61))
             # IP Address portion
             if add_client.ip_address == None:
                 ip_portion = ''
